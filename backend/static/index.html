@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deep Research Agent</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; background: #0f0f1a; color: #e0e0e0; min-height: 100vh; }
+
+  .header { background: linear-gradient(135deg, #1a1a3e 0%, #0f0f1a 100%); border-bottom: 1px solid #2a2a4a; padding: 24px 40px; }
+  .header h1 { font-size: 22px; font-weight: 700; background: linear-gradient(90deg, #818cf8, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .header .sub { font-size: 13px; color: #666; margin-top: 4px; }
+
+  .main { max-width: 1000px; margin: 0 auto; padding: 32px 20px; }
+
+  /* Input area */
+  .input-area { background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 16px; padding: 24px; margin-bottom: 24px; }
+  .input-row { display: flex; gap: 12px; align-items: flex-end; }
+  .input-group { flex: 1; }
+  .input-group label { display: block; font-size: 13px; color: #888; margin-bottom: 8px; font-weight: 500; }
+  .input-group input { width: 100%; padding: 12px 16px; border: 1px solid #2a2a4a; border-radius: 10px; background: #0f0f1a; color: #e0e0e0; font-size: 15px; outline: none; transition: border-color 0.2s; }
+  .input-group input:focus { border-color: #6366f1; }
+  .input-group input::placeholder { color: #555; }
+
+  .btn { padding: 12px 28px; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+  .btn-primary { background: linear-gradient(135deg, #6366f1, #818cf8); color: #fff; }
+  .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(99,102,241,0.3); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-secondary { background: #2a2a4a; color: #ccc; }
+  .btn-secondary:hover { background: #3a3a5a; }
+
+  .mode-toggle { display: flex; gap: 8px; margin-bottom: 16px; }
+  .mode-btn { padding: 6px 16px; border: 1px solid #2a2a4a; border-radius: 8px; background: transparent; color: #888; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+  .mode-btn.active { background: #6366f1; color: #fff; border-color: #6366f1; }
+  .mode-btn:hover:not(.active) { border-color: #6366f1; color: #ccc; }
+
+  /* Progress bar */
+  .progress-area { margin-bottom: 24px; }
+  .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .progress-header .label { font-size: 13px; color: #888; }
+  .progress-header .status { font-size: 13px; color: #818cf8; font-weight: 500; }
+  .progress-bar { height: 4px; background: #2a2a4a; border-radius: 4px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #6366f1, #818cf8); border-radius: 4px; transition: width 0.5s ease; width: 0%; }
+
+  /* Live log */
+  .live-log { background: #0a0a14; border: 1px solid #1a1a2e; border-radius: 12px; padding: 16px; max-height: 200px; overflow-y: auto; margin-bottom: 20px; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 12px; display: none; }
+  .live-log .entry { padding: 4px 0; border-bottom: 1px solid #111; display: flex; gap: 8px; }
+  .live-log .entry:last-child { border-bottom: none; }
+  .live-log .time { color: #555; }
+  .live-log .node { color: #818cf8; font-weight: 600; }
+  .live-log .msg { color: #aaa; }
+  .live-log .msg.done { color: #4caf50; }
+  .live-log .msg.error { color: #ef5350; }
+
+  /* Report */
+  .report-area { display: none; }
+  .report-area.visible { display: block; }
+
+  .report-card { background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 16px; overflow: hidden; margin-bottom: 20px; }
+  .report-card-header { padding: 16px 24px; border-bottom: 1px solid #2a2a4a; font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+  .report-card-body { padding: 24px; }
+  .report-card-body h2 { font-size: 20px; margin-bottom: 16px; color: #f0f0f0; }
+  .report-card-body p { line-height: 1.8; color: #ccc; }
+  .report-card-body p + p { margin-top: 12px; }
+
+  /* Sub-tasks */
+  .task-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .task-card { background: #0f0f1a; border: 1px solid #2a2a4a; border-radius: 12px; padding: 16px; }
+  .task-card .title { font-weight: 600; font-size: 14px; color: #e0e0e0; margin-bottom: 8px; }
+  .task-card .query { font-size: 12px; color: #888; margin-bottom: 12px; }
+  .task-card .sources { font-size: 12px; }
+  .task-card .sources summary { cursor: pointer; color: #818cf8; font-weight: 500; }
+  .task-card .sources ul { margin-top: 8px; padding-left: 16px; }
+  .task-card .sources li { color: #aaa; padding: 2px 0; font-size: 12px; list-style: none; }
+  .task-card .sources li::before { content: '• '; color: #6366f1; }
+  .task-card .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; margin-bottom: 8px; }
+  .tag-rag { background: rgba(99,102,241,0.2); color: #818cf8; }
+  .tag-web { background: rgba(76,175,80,0.2); color: #4caf50; }
+  .tag-error { background: rgba(239,83,80,0.2); color: #ef5350; }
+
+  /* Error */
+  .error-card { background: rgba(239,83,80,0.1); border: 1px solid rgba(239,83,80,0.3); border-radius: 12px; padding: 16px 20px; color: #ef5350; font-size: 14px; display: none; margin-bottom: 20px; }
+  .error-card.visible { display: block; }
+  .error-card .title { font-weight: 600; margin-bottom: 4px; }
+
+  /* Empty state */
+  .empty-state { text-align: center; padding: 60px 20px; color: #555; }
+  .empty-state .icon { font-size: 48px; margin-bottom: 16px; opacity: 0.3; }
+  .empty-state p { font-size: 14px; }
+
+  /* Spin */
+  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.1); border-top-color: #818cf8; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .hidden { display: none; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3a3a5a; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Deep Research Agent</h1>
+  <div class="sub">LangGraph · FastAPI · MCP · Chroma · Tavily</div>
+</div>
+
+<div class="main">
+
+  <!-- Input -->
+  <div class="input-area">
+    <div class="mode-toggle">
+      <button class="mode-btn active" data-mode="normal" onclick="switchMode('normal')">标准模式</button>
+      <button class="mode-btn" data-mode="stream" onclick="switchMode('stream')">实时流模式</button>
+    </div>
+    <div class="input-row">
+      <div class="input-group">
+        <label for="topic">研究主题</label>
+        <input id="topic" type="text" placeholder="输入你想深入了解的主题，例如：2026年AI Agent发展趋势" autofocus>
+      </div>
+      <button class="btn btn-primary" id="btn-start" onclick="startResearch()">开始研究</button>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-card" id="error-card">
+    <div class="title">❌ 研究失败</div>
+    <div id="error-msg"></div>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-area hidden" id="progress-area">
+    <div class="progress-header">
+      <span class="label" id="progress-label">正在分析主题...</span>
+      <span class="status" id="progress-status"><span class="spinner"></span>进行中</span>
+    </div>
+    <div class="progress-bar"><div class="progress-bar-fill" id="progress-fill"></div></div>
+  </div>
+
+  <!-- Live log -->
+  <div class="live-log" id="live-log"></div>
+
+  <!-- Report -->
+  <div class="report-area" id="report-area">
+
+    <!-- Final report -->
+    <div class="report-card">
+      <div class="report-card-header">📄 研究报告</div>
+      <div class="report-card-body" id="report-body">
+        <div class="empty-state">
+          <div class="icon">📝</div>
+          <p>研究完成后报告将显示在这里</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sub-tasks -->
+    <div class="report-card">
+      <div class="report-card-header">🔍 子任务详情</div>
+      <div class="report-card-body">
+        <div class="task-grid" id="task-grid"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Empty -->
+  <div class="empty-state" id="empty-state">
+    <div class="icon">🔬</div>
+    <p>输入研究主题，点击「开始研究」</p>
+    <p style="font-size:12px;margin-top:8px;">Agent 会自动拆解任务 → 并行搜索 → 生成报告</p>
+  </div>
+</div>
+
+<script>
+const API_BASE = 'http://localhost:8000';
+let currentMode = 'normal';
+let running = false;
+
+function switchMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+}
+
+function log(node, msg, type) {
+  const log = document.getElementById('live-log');
+  const entry = document.createElement('div');
+  entry.className = 'entry';
+  const time = new Date().toLocaleTimeString();
+  entry.innerHTML = `<span class="time">${time}</span><span class="node">[${node}]</span><span class="msg ${type}">${msg}</span>`;
+  log.appendChild(entry);
+  log.scrollTop = log.scrollHeight;
+}
+
+function showError(msg) {
+  document.getElementById('error-card').classList.add('visible');
+  document.getElementById('error-msg').textContent = msg;
+}
+
+function hideError() {
+  document.getElementById('error-card').classList.remove('visible');
+}
+
+function setStatus(text) {
+  document.getElementById('progress-status').innerHTML = text;
+}
+
+function setLabel(text) {
+  document.getElementById('progress-label').textContent = text;
+}
+
+function setProgress(pct) {
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+
+async function startResearch() {
+  const topic = document.getElementById('topic').value.trim();
+  if (!topic) return alert('请输入研究主题');
+  if (topic.length < 5) return alert('研究主题至少需要 5 个字符');
+
+  if (running) return;
+  running = true;
+  hideError();
+
+  const btn = document.getElementById('btn-start');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>研究中...';
+
+  // Show progress
+  document.getElementById('progress-area').classList.remove('hidden');
+  document.getElementById('report-area').classList.remove('visible');
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('live-log').style.display = 'block';
+  document.getElementById('live-log').innerHTML = '';
+  document.getElementById('task-grid').innerHTML = '';
+  document.getElementById('report-body').innerHTML = '';
+
+  setStatus('<span class="spinner"></span>进行中');
+  setLabel('正在准备研究...');
+  setProgress(5);
+
+  try {
+    if (currentMode === 'stream') {
+      await startStream(topic);
+    } else {
+      await startNormal(topic);
+    }
+  } catch (e) {
+    showError(e.message || '请求失败');
+    setStatus('❌ 失败');
+    log('ERROR', e.message || '请求失败', 'error');
+  } finally {
+    running = false;
+    btn.disabled = false;
+    btn.textContent = '开始研究';
+  }
+}
+
+async function startNormal(topic) {
+  setLabel('正在执行研究...');
+  setProgress(20);
+  log('SYSTEM', '发送研究请求...', '');
+
+  const res = await fetch(`${API_BASE}/research`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ topic })
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    // FastAPI 422 validation error returns detail as an array
+    const detail = err.detail;
+    let msg = `HTTP ${res.status}`;
+    if (Array.isArray(detail)) {
+      msg = detail.map(d => d.msg).join('; ');
+    } else if (typeof detail === 'object' && detail.message) {
+      msg = detail.message;
+    }
+    throw new Error(msg);
+  }
+
+  setProgress(60);
+  log('SYSTEM', '请求成功，解析结果...', '');
+  const data = await res.json();
+  setProgress(90);
+
+  // Render
+  renderReport(data);
+  setProgress(100);
+  setStatus('✅ 完成');
+  setLabel('研究完成');
+  log('SYSTEM', '研究报告已生成', 'done');
+}
+
+async function startStream(topic) {
+  setLabel('正在建立流连接...');
+  setProgress(10);
+  log('SYSTEM', '开始实时流模式...', '');
+
+  const res = await fetch(`${API_BASE}/research/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ topic })
+  });
+
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let finalData = null;
+  const nodeOrder = ['plan_tasks', 'assign_task', 'search', 'rag_task', 'run_task', 'search_mcp_tool', 'generate_report'];
+
+  const totalSteps = nodeOrder.length;
+  let currentStep = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    let eventType = '';
+    for (const line of lines) {
+      if (line.startsWith('event: ')) {
+        eventType = line.slice(7).trim();
+      } else if (line.startsWith('data: ')) {
+        const dataStr = line.slice(6);
+        try {
+          const data = JSON.parse(dataStr);
+
+          if (eventType === 'start') {
+            log('START', `研究主题: ${data.topic}`, '');
+            setLabel('正在拆解任务...');
+          } else if (eventType === 'plan_tasks') {
+            currentStep++;
+            const todoCount = data.todo_items?.length || 0;
+            log('PLAN', `已将研究拆解为 ${todoCount} 个子任务`, '');
+            setLabel(`拆解任务完成 (${todoCount} 项)`);
+            setProgress(Math.round((currentStep / totalSteps) * 70));
+          } else if (eventType === 'assign_task') {
+            const sends = Array.isArray(data) ? data : [];
+            log('ASSIGN', `准备并行执行 ${sends.length} 个任务`, '');
+            setLabel('并行执行子任务...');
+          } else if (eventType === 'search') {
+            const title = data.title || '';
+            const hasRag = data.rag_results?.length > 0;
+            const hasWeb = data.web_results?.length > 0;
+            log('SEARCH', `${title}: RAG=${hasRag ? '✅' : '❌'} Web=${hasWeb ? '✅' : '❌'}`, '');
+          } else if (eventType === 'rag_task') {
+            log('RAG', `检索完成: ${data.rag_results?.length || 0} 条`, '');
+          } else if (eventType === 'run_task') {
+            log('WEB', `网络搜索完成`, '');
+          } else if (eventType === 'search_mcp_tool') {
+            const ragCount = data.rag_results?.length || 0;
+            const webCount = data.task_results?.length || 0;
+            log('MCP', `MCP 工具调用: RAG=${ragCount} 条, Web=${webCount} 条`, '');
+          } else if (eventType === 'generate_report') {
+            currentStep++;
+            log('REPORT', '正在生成最终报告...', '');
+            setLabel('生成研究报告中...');
+            setProgress(85);
+          } else if (eventType === 'done') {
+            log('DONE', '研究完成！', 'done');
+            setLabel('研究完成');
+            setProgress(100);
+            setStatus('✅ 完成');
+          }
+        } catch (e) {
+          // parse error, skip
+        }
+      }
+    }
+  }
+
+  // After stream completes, fetch the full result
+  setLabel('正在获取完整结果...');
+  log('SYSTEM', '流结束后获取完整结果', '');
+
+  try {
+    const res2 = await fetch(`${API_BASE}/research`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic })
+    });
+    if (res2.ok) {
+      finalData = await res2.json();
+      renderReport(finalData);
+      setProgress(100);
+      setStatus('✅ 完成');
+    }
+  } catch (e) {
+    log('WARN', '获取完整结果失败，但流已完成', 'error');
+  }
+}
+
+function renderReport(data) {
+  const reportArea = document.getElementById('report-area');
+  reportArea.classList.add('visible');
+
+  // Report
+  const reportBody = document.getElementById('report-body');
+  const report = data.final_report || '未生成报告';
+  const topic = document.getElementById('topic').value.trim();
+  reportBody.innerHTML = `<h2>${escapeHtml(topic)}</h2><div style="line-height:1.8;color:#ccc;">${renderMarkdown(report)}</div>`;
+
+  // Tasks
+  const grid = document.getElementById('task-grid');
+  const todoItems = data.todo_items || [];
+
+  if (todoItems.length === 0) {
+    grid.innerHTML = '<div style="color:#666;text-align:center;padding:20px;">未获取到子任务信息</div>';
+    return;
+  }
+
+  for (let i = 0; i < todoItems.length; i++) {
+    const item = todoItems[i];
+    const card = document.createElement('div');
+    card.className = 'task-card';
+
+    const rag = (data.rag_results || [])[i];
+    const web = (data.task_results || [])[i];
+
+    let sourceHtml = '';
+    let tag = 'tag-error';
+    let tagLabel = '无结果';
+
+    // RAG results
+    const ragTexts = rag?.output;
+    const hasRag = Array.isArray(ragTexts) && ragTexts.length > 0;
+    if (hasRag) {
+      tag = 'tag-rag';
+      tagLabel = 'RAG';
+      sourceHtml += `<details class="sources"><summary>📚 RAG 检索结果 (${ragTexts.length} 条)</summary><ul>`;
+      ragTexts.forEach(t => {
+        sourceHtml += `<li>${escapeHtml(t)}</li>`;
+      });
+      sourceHtml += `</ul></details>`;
+    }
+
+    // Web search results
+    const webOutput = web?.output;
+    const hasWeb = Array.isArray(webOutput) && webOutput.length > 0;
+    if (hasWeb) {
+      tag = 'tag-web';
+      tagLabel = '网络';
+      sourceHtml += `<details class="sources" style="margin-top:8px;"><summary>🌐 网络搜索结果 (${webOutput.length} 条)</summary><ul>`;
+      webOutput.forEach(r => {
+        sourceHtml += `<li>${escapeHtml(r)}</li>`;
+      });
+      sourceHtml += `</ul></details>`;
+    }
+
+    if (!hasRag && !hasWeb) {
+      sourceHtml += `<div style="margin-top:8px;color:#ef5350;font-size:12px;">❌ 未检索到相关结果</div>`;
+    }
+
+    card.innerHTML = `
+      <div class="tag ${tag}">${tagLabel}</div>
+      <div class="title">${escapeHtml(item.title)}</div>
+      <div class="query">${escapeHtml(item.query)}</div>
+      ${sourceHtml}
+    `;
+    grid.appendChild(card);
+  }
+}
+
+function renderMarkdown(text) {
+  if (!text) return '';
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`(.+?)`/g, '<code style="background:#2a2a4a;padding:2px 6px;border-radius:4px;font-size:13px;">$1</code>')
+    .replace(/^### (.+)$/gm, '<h3 style="color:#f0f0f0;margin:20px 0 10px;font-size:17px;">$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2 style="color:#f0f0f0;margin:24px 0 12px;font-size:19px;">$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1 style="color:#f0f0f0;margin:28px 0 14px;font-size:22px;">$1</h1>')
+    .replace(/^- (.+)$/gm, '<li style="margin:4px 0 4px 16px;">$1</li>')
+    .replace(/\n{2,}/g, '</p><p>')
+    .replace(/\n/g, '<br>');
+  return '<p>' + html + '</p>';
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+
+</body>
+</html>

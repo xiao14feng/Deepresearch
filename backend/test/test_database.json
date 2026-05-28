@@ -1,0 +1,30 @@
+[
+  {
+    "query": "LangGraph的工作原理是什么？",
+    "expected_keywords": ["图结构", "状态", "节点", "工作流"]
+  },
+  {
+    "query": "RAG为什么要分块？",
+    "expected_keywords": ["embedding", "语义", "token", "检索"]
+  },
+  {
+    "query": "LangGraph有哪些优势？",
+    "expected_keywords": ["循环", "持久化", "人机协作", "可靠性"]
+  },
+  {
+    "query": "embedding这一步在做什么？",
+    "expected_keywords": ["向量", "语义", "高维", "embedding"]
+  },
+  {
+    "query": "chunk_size太大会出现什么问题？",
+    "expected_keywords": ["成本", "检索", "语义", "存储"]
+  },
+  {
+    "query": "LangGraph开发步骤有哪些？",
+    "expected_keywords": ["节点", "状态", "图", "流程"]
+  },
+  {
+    "query": "向量数据库怎么选索引？",
+    "expected_keywords": ["相似度", "top_k", "索引", "距离"]
+  }
+]
