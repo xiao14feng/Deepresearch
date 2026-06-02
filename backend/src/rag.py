@@ -1,25 +1,28 @@
 import os
 import glob
+import logging
 import threading
 from dotenv import load_dotenv
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
-from langchain_openai import OpenAIEmbeddings
 from langchain_core.documents import Document
 from .config import EMBEDDING_LLM
+from .chunking import chunk_document
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 CHROMA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data', 'chroma')
 DATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data', 'datas')
 COLLECTION_NAME = "deep_research"
 CHUNK_SIZE = 512
-CHUNK_OVERLAP = 32
+MULTIPASS_MERGE_SIZE = 4
 _CHROMA_INSTANCE = None
 _LOCK = threading.Lock()
 
 def _get_collection():
     global _CHROMA_INSTANCE
-    
+
     if _CHROMA_INSTANCE is None:
         with _LOCK:
             if _CHROMA_INSTANCE is None:
@@ -30,43 +33,63 @@ def _get_collection():
                 )
     return _CHROMA_INSTANCE
 
-def build_index(floder: str = DATA_DIR):
+def build_index(folder: str = DATA_DIR):
+    """构建向量索引（基于句子级切块 + multipass 合并）。
+
+    切块策略变更（相对旧版 RecursiveCharacterTextSplitter）：
+      - 旧: chunk_size=512, chunk_overlap=32, 递归字符分割
+      - 新: 句子级切分 + multipass 多通道合并，保证语义完整性
+    """
     documents = []
     collection = _get_collection()
 
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=CHUNK_SIZE,
-        chunk_overlap=CHUNK_OVERLAP
-    )
+    # 旧策略已被替换:
+    #   text_splitter = RecursiveCharacterTextSplitter(chunk_size=512, chunk_overlap=32)
+    # 新策略: sentence_level_chunk() + multipass_merge(), 见 chunking.py
 
-    files_paths = glob.glob(os.path.join(floder, "*.md"))
+    files_paths = glob.glob(os.path.join(folder, "*.md"))
     if not files_paths:
+        logger.warning("未找到任何 .md 文件: %s", folder)
         return 0
+
+    total_chunks = 0
 
     for file_path in files_paths:
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
 
-        chunks = text_splitter.split_text(content)
-        filename = os.path.basename(file_path)
+        # ---- 新切块策略 ----
+        chunks = chunk_document(
+            content,
+            chunk_size=CHUNK_SIZE,
+            enable_multipass=True,
+            multipass_merge_size=MULTIPASS_MERGE_SIZE,
+        )
 
-        for idx, chunk in enumerate(chunks):
+        filename = os.path.basename(file_path)
+        logger.info("%s: 共 %d 个块（multipass=%d）", filename, len(chunks), MULTIPASS_MERGE_SIZE)
+
+        for idx, chunk_text in enumerate(chunks):
             documents.append(
                 Document(
-                    page_content=chunk,
+                    page_content=chunk_text,
                     metadata={
                         "source": filename,
                         "chunk_index": idx,
+                        "chunk_size": len(chunk_text),
+                        "method": "sentence+multipass",
                     }
                 )
             )
+            total_chunks += 1
 
     if not documents:
         return 0
 
     collection.add_documents(documents)
+    logger.info("索引完成: %d 个文档, %d 个块", len(files_paths), total_chunks)
 
-    return len(documents)
+    return total_chunks
 
 def search(query: str, k: int = 3):
     collection = _get_collection()

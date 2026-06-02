@@ -20,3 +20,15 @@ __pycache__/
 # 系统文件
 .DS_Store
 Thumbs.db
+
+# 向量数据库（二进制，每次重建索引都会变）
+backend/data/chroma/
+
+# 废弃代码
+backend/src/Trash.py
+
+# 评测结果
+backend/test/*.json
+
+# 空目录
+fronted/
