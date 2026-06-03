@@ -22,13 +22,14 @@ __pycache__/
 Thumbs.db
 
 # 向量数据库（二进制，每次重建索引都会变）
-backend/data/chroma/
+data/chroma/
+
+# 对比评测数据
+data/compare/
 
 # 废弃代码
 backend/src/Trash.py
 
 # 评测结果
-backend/test/*.json
-
-# 空目录
-fronted/
+test/results.json
+test/compare_results.json

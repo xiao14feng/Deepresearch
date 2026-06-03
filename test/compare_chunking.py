@@ -17,7 +17,7 @@ import shutil
 import re
 from dataclasses import dataclass, field, asdict
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
 import tiktoken
 from langchain_chroma import Chroma

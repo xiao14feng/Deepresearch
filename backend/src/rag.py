@@ -11,9 +11,9 @@ from .chunking import chunk_document
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
-CHROMA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data', 'chroma')
-DATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data', 'datas')
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
+CHROMA_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'chroma')
+DATA_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'datas')
 COLLECTION_NAME = "deep_research"
 CHUNK_SIZE = 512
 MULTIPASS_MERGE_SIZE = 4

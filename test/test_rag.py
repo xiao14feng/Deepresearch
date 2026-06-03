@@ -2,7 +2,7 @@ import os
 import sys
 import json
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend'))
 
 from src.rag import search, build_index
 from src.config import LLM

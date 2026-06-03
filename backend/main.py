@@ -25,7 +25,7 @@ app = FastAPI(lifespan=lifespan)
 
 @app.get("/")
 def index():
-    return FileResponse(Path(__file__).parent / "static" / "index.html")
+    return FileResponse(Path(__file__).parent.parent / "fronted" / "index.html")
 
 @app.post("/research")
 def research(request: ResearchRequest):

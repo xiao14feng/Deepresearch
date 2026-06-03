@@ -7,8 +7,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 复制代码
-COPY main.py .
-COPY src/ ./src/
+COPY backend/main.py .
+COPY backend/src/ ./src/
 
 # 创建数据目录（运行时挂载）
 RUN mkdir -p /app/data/datas /app/data/chroma
