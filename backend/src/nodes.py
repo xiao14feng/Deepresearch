@@ -12,7 +12,7 @@ from src.state import ResearchState
 from src.prompts import PROMPT_PLAN
 from src.config import LLM
 from src.tools import search_web
-from src.rag import search, build_index
+from src.rag.indexing import simple_search, build_index
 
 _tools_cache = None
 class JsonError(ValueError):

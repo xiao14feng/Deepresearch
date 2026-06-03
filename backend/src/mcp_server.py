@@ -9,23 +9,27 @@ from src.state import ResearchState
 from src.prompts import PROMPT_PLAN
 from src.config import LLM
 from src.tools import search_web
-from src.rag import search, build_index
+from src.rag.indexing import simple_search, build_index
+from src.rag.retrieval import retrieve
 
 server = FastMCP("search_database")
 
 @server.tool()
 def search_rag(title: str, query: str) -> dict:
-    rag_results = []
+    # 使用高级检索管道：混合搜索 + 查询扩展 + RRF 融合 + LLM 过滤
+    outputs = retrieve(query, k=5, enable_llm_filter=True)
+    # 回退到简单向量检索
+    if not outputs:
+        outputs = simple_search(query, k=3)
+
     texts = []
     scores = []
-    outputs = search(query)
-
-    for key, value in enumerate(outputs):
-        text = value["text"]
-        score = value["distance"]
+    for value in outputs:
+        text = value.get("text", "")
+        score = value.get("hybrid_score", value.get("rrf_score", value.get("distance", 0)))
         scores.append(score)
-        texts.append(f"检索到的文档{key}, {text}\n")
-    
+        texts.append(f"检索到的文档{len(texts)}, {text}\n")
+
     rag_results = {
         "title": title,
         "score": list(scores),

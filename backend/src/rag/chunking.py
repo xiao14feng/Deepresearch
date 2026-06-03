@@ -6,6 +6,7 @@
 2. 不设 overlap，改用 multipass 多通道合并（每 4 个小块合并为一个大块）
 3. 超长单句 — 不硬截断，按 chunk_size 字符截取
 4. 超短文档 — 直接添加并发出警告
+5. Mini-chunk — 对每块再切 150t 子块用于精细检索
 
 对比旧策略（RecursiveCharacterTextSplitter + overlap）：
   - 旧：按分隔符递归切分，可能切碎语义完整的句子
@@ -159,13 +160,54 @@ def multipass_merge(chunks: list[str], merge_size: int = 4) -> list[str]:
     return merged
 
 
+def generate_mini_chunks(chunk: str, mini_size: int = 150) -> list[str]:
+    """将大块切分成 mini-chunk（约 150 token），用于精细检索。
+
+    Onyx 策略：normal chunk 内部再切 minichunk，
+    将 minichunk 与原始 chunk 拼接存储以提升检索精度。
+
+    Args:
+        chunk: 原始大块文本。
+        mini_size: mini-chunk 的目标 token 数。
+
+    Returns:
+        mini-chunk 文本列表。
+    """
+    sentences = split_sentences(chunk)
+    if not sentences:
+        return []
+
+    minis = []
+    current = []
+    current_tokens = 0
+
+    for sent in sentences:
+        sent_tokens = count_tokens(sent)
+
+        if current_tokens + sent_tokens > mini_size and current:
+            minis.append(''.join(current).strip())
+            current = [sent]
+            current_tokens = sent_tokens
+        else:
+            current.append(sent)
+            current_tokens += sent_tokens
+
+    if current:
+        minis.append(''.join(current).strip())
+
+    # 如果只生成了一块（小于 mini_size），返回空表示不需要分块
+    return minis if len(minis) > 1 else []
+
+
 def chunk_document(
     content: str,
     chunk_size: int = 512,
     min_sentences: int = 2,
     enable_multipass: bool = True,
     multipass_merge_size: int = 4,
-) -> list[str]:
+    enable_mini_chunks: bool = True,
+    mini_chunk_size: int = 150,
+) -> list[dict]:
     """完整的文档切块流程。
 
     Pass 1 — 句子级切块
@@ -174,33 +216,60 @@ def chunk_document(
     Pass 2 — Multipass 多通道合并（可选）
       将相邻小块合并为大块，替代 overlap 机制。
 
+    Pass 3 — Mini-chunk 生成（可选）
+      对每个大块再切 150t 子块用于精细检索。
+
     Args:
         content: 文档全文。
         chunk_size: 目标 token 数上限。
         min_sentences: 最小句子数。
         enable_multipass: 是否启用 multipass 合并。
         multipass_merge_size: 每组合并的小块数。
+        enable_mini_chunks: 是否生成 mini-chunk。
+        mini_chunk_size: mini-chunk 的 token 数。
 
     Returns:
-        切块后的文本列表。
+        [{text, is_mini_chunk, parent_idx}, ...] 格式的块列表。
     """
     # Pass 1: 句子级切块
-    chunks = sentence_level_chunk(
+    base_chunks = sentence_level_chunk(
         content,
         chunk_size=chunk_size,
         min_sentences=min_sentences,
     )
 
-    if not chunks:
+    if not base_chunks:
         return []
 
     # Pass 2: Multipass 多通道合并（替代 overlap）
-    if enable_multipass and len(chunks) > 1:
-        merged = multipass_merge(chunks, merge_size=multipass_merge_size)
+    if enable_multipass and len(base_chunks) > 1:
+        merged = multipass_merge(base_chunks, merge_size=multipass_merge_size)
         logger.debug(
             "multipass: %d chunks → %d chunks (merge_size=%d)",
-            len(chunks), len(merged), multipass_merge_size,
+            len(base_chunks), len(merged), multipass_merge_size,
         )
-        return merged
+        final_chunks = merged
+    else:
+        final_chunks = base_chunks
 
-    return chunks
+    # 构建返回结果
+    result = []
+    for idx, text in enumerate(final_chunks):
+        result.append({
+            "text": text,
+            "is_mini_chunk": False,
+            "parent_idx": -1,
+        })
+
+    # Pass 3: Mini-chunk 生成
+    if enable_mini_chunks:
+        for idx, chunk_info in enumerate(result):
+            minis = generate_mini_chunks(chunk_info["text"], mini_size=mini_chunk_size)
+            for mini_text in minis:
+                result.append({
+                    "text": mini_text,
+                    "is_mini_chunk": True,
+                    "parent_idx": idx,
+                })
+
+    return result

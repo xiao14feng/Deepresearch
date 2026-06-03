@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from contextlib import asynccontextmanager
 from src.graph import agent
-from src.rag import build_index
+from src.rag.indexing import build_index
 
 def format_sse(event: str, data: dict):
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
